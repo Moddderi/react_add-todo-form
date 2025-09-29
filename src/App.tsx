@@ -21,11 +21,22 @@ export type Todo = {
 };
 
 export const App = () => {
+  // Helper для безопасного поиска пользователя
+  const findUserById = (id: number): User | undefined =>
+    usersFromServer.find(user => user.id === id);
+
   const [todos, setTodos] = useState<Todo[]>(() =>
-    todosFromServer.map(todo => ({
-      ...todo,
-      user: usersFromServer.find(user => user.id === todo.userId)!,
-    })),
+    todosFromServer
+      .map(todo => {
+        const user = findUserById(todo.userId);
+
+        if (!user) {
+          return null;
+        } // безопасно, если нет пользователя
+
+        return { ...todo, user };
+      })
+      .filter((todo): todo is Todo => todo !== null),
   );
 
   const [title, setTitle] = useState('');
@@ -47,12 +58,20 @@ export const App = () => {
       return;
     }
 
+    const user = findUserById(userId);
+
+    if (!user) {
+      alert('Selected user not found!');
+
+      return;
+    }
+
     const newTodo: Todo = {
       id: Math.max(0, ...todos.map(todo => todo.id)) + 1,
       title: title.trim(),
       completed: false,
       userId,
-      user: usersFromServer.find(u => u.id === userId)!,
+      user,
     };
 
     setTodos(prev => [...prev, newTodo]);
@@ -75,28 +94,32 @@ export const App = () => {
 
       <form onSubmit={handleSubmit}>
         <div className="field">
+          <label htmlFor="titleInput">Title</label>
           <input
+            id="titleInput"
             type="text"
             placeholder="Enter todo title"
             data-cy="titleInput"
             value={title}
-            onChange={e => handleTitleChange(e.target.value)}
+            onChange={event => handleTitleChange(event.target.value)}
           />
           {titleError && <span className="error">Please enter a title</span>}
         </div>
 
         <div className="field">
+          <label htmlFor="userSelect">User</label>
           <select
+            id="userSelect"
             data-cy="userSelect"
             value={userId}
-            onChange={e => {
-              setUserId(Number(e.target.value));
+            onChange={event => {
+              setUserId(Number(event.target.value));
               if (userError) {
                 setUserError(false);
               }
             }}
           >
-            <option value="0" disabled>
+            <option value={0} disabled>
               Choose a user
             </option>
             {usersFromServer.map(user => (
